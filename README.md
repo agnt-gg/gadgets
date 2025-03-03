@@ -1,4 +1,4 @@
-# AGNT.gg Toolbox
+# AGNT.gg Gadgets
 
 This repository contains a collection of useful tools, utilities, and other cool stuff developed as part of the process of building AGNT.gg.
 
