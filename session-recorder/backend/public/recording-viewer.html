@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Behavior Analysis</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="recording-viewer.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>User Behavior Analysis</h1>
+        </header>
+        
+        <div class="session-selector">
+            <label for="session-select">Select Session:</label>
+            <select id="session-select">
+                <option value="">Loading sessions...</option>
+            </select>
+            <div id="session-info"></div>
+        </div>
+        
+        <div class="viewport-container">
+            <div id="viewport-frame">
+                <!-- Cursor element -->
+                <div id="cursor"></div>
+                <!-- Screenshot will be loaded here as background -->
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="play-btn" title="Play Recording"><i class="fas fa-play"></i> Play</button>
+            <button id="pause-btn" title="Pause Recording" disabled><i class="fas fa-pause"></i> Pause</button>
+            <div class="speed-control">
+                <label for="playback-speed">Speed:</label>
+                <select id="playback-speed">
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="2">2x</option>
+                    <option value="4">4x</option>
+                    <option value="8">8x</option>
+                </select>
+            </div>
+            <button id="analyze-btn" title="Analyze Session"><i class="fas fa-brain"></i> Analyze Session</button>
+            <button id="copy-analysis-btn" title="Copy Analysis to Clipboard" disabled><i class="fas fa-copy"></i> Copy Analysis</button>
+        </div>
+        <div id="analysis-result" class="markdown-content"></div>
+    </div>
+    
+    <!-- Add Showdown.js for markdown conversion -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+    <script src="recording-viewer.js"></script>
+</body>
+</html> 

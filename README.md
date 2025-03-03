@@ -11,7 +11,7 @@ Rather than keeping these to ourselves, we've decided to open source them in thi
 
 Here's a quick overview of some of the tools and utilities you'll find in this repository:
 
-- **Heatmap / Session Recording System**: A session recording system that 
+- **Session Recording System w/ AI Analysis**: A session recording system that records the cursor movements / clicks over a user session and reports it back to a server / DB. Includes a session viewing tool and AI session analysis.
 - **Popup Tour System**: A fun and easy to use popup tour system that allows you to show tour-like popup notifications to your users.
 - **LLM Stream to Markdown / HTML**: A handy module for getting streams from LLMs and displaying outputs as Markdown / HTML content in real-time.
 - **Pseudo-Random Name Generator**: Create unique, random-sounding names for characters, projects, etc.
