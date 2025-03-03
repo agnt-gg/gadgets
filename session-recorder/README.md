@@ -111,6 +111,10 @@ this.apiKey = "your-api-key";
 3. Use section and element IDs that are descriptive and consistent
 4. Test recordings on different viewport sizes
 
+## Support
+
+Need help with integration or have questions? Reach out to [@NathanWilbanks_](https://x.com/NathanWilbanks_) on X (formerly Twitter) for assistance.
+
 ## Server Setup
 
 1. Navigate to the backend directory:
