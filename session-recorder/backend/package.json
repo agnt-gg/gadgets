@@ -1,12 +1,12 @@
 {
-  "name": "heatmap-capture-server",
+  "name": "session-recorder-server",
   "version": "1.0.0",
-  "description": "Server to capture and store heatmap data",
-  "main": "heatmap-server.js",
+  "description": "Server to capture and store session data",
+  "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node heatmap-server.js",
-    "dev": "nodemon heatmap-server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
