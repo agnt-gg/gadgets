@@ -86,38 +86,38 @@
             this.isFileProtocol = window.location.protocol === 'file:';
             
             // Show warning when running from file:// protocol
-            if (this.isFileProtocol) {
-                console.warn('⚠️ Running from file:// protocol. Server transmission will be disabled. To enable full functionality, please serve these files from a web server.');
+            // if (this.isFileProtocol) {
+            //     console.warn('⚠️ Running from file:// protocol. Server transmission will be disabled. To enable full functionality, please serve these files from a web server.');
                 
-                // Create a warning message on the page
-                setTimeout(() => {
-                    const warningDiv = document.createElement('div');
-                    warningDiv.style.cssText = `
-                        position: fixed;
-                        bottom: 70px;
-                        right: 10px;
-                        background: rgba(255, 200, 50, 0.9);
-                        color: #333;
-                        padding: 10px 15px;
-                        border-radius: 4px;
-                        font-family: sans-serif;
-                        font-size: 12px;
-                        z-index: 99999;
-                        max-width: 300px;
-                    `;
-                    warningDiv.innerHTML = `
-                        <p><strong>⚠️ Development Mode</strong></p>
-                        <p>Heatmap data is being recorded but cannot be sent to the server when running from a file:// URL.</p>
-                        <p>To enable server transmission, serve these files from a web server.</p>
-                    `;
-                    document.body.appendChild(warningDiv);
+            //     // Create a warning message on the page
+            //     setTimeout(() => {
+            //         const warningDiv = document.createElement('div');
+            //         warningDiv.style.cssText = `
+            //             position: fixed;
+            //             bottom: 70px;
+            //             right: 10px;
+            //             background: rgba(255, 200, 50, 0.9);
+            //             color: #333;
+            //             padding: 10px 15px;
+            //             border-radius: 4px;
+            //             font-family: sans-serif;
+            //             font-size: 12px;
+            //             z-index: 99999;
+            //             max-width: 300px;
+            //         `;
+            //         warningDiv.innerHTML = `
+            //             <p><strong>⚠️ Development Mode</strong></p>
+            //             <p>Heatmap data is being recorded and will be transmitted to the server.</p>
+            //             <p>For optimal performance, consider serving these files from a web server.</p>
+            //         `;
+            //         document.body.appendChild(warningDiv);
                     
-                    // Auto-remove after 10 seconds
-                    setTimeout(() => {
-                        try { document.body.removeChild(warningDiv); } catch(e) {}
-                    }, 10000);
-                }, 2000);
-            }
+            //         // Auto-remove after 10 seconds
+            //         setTimeout(() => {
+            //             try { document.body.removeChild(warningDiv); } catch(e) {}
+            //         }, 10000);
+            //     }, 2000);
+            // }
             
             // Also show API key warning
             console.warn("⚠️ Using default API key. If the server requires a different key, please update it in heatmap-transmitter.js");

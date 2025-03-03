@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Recorder Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        section {
+            margin: 40px 0;
+            padding: 20px;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .product-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section data-section-id="hero" data-section-type="landing">
+        <h1>Welcome to Our Demo Store</h1>
+        <p>This is a demo page to showcase the session recorder functionality.</p>
+        <button data-element-id="hero-cta" data-action="get-started">Get Started</button>
+    </section>
+
+    <!-- Products Section -->
+    <section data-section-id="products" data-section-type="catalog">
+        <h2>Our Products</h2>
+        
+        <div class="product-card" data-section-id="product-1" data-product-type="basic">
+            <h3>Basic Package</h3>
+            <p>Perfect for starters</p>
+            <button data-element-id="buy-button" data-price="9.99">Buy for $9.99</button>
+        </div>
+
+        <div class="product-card" data-section-id="product-2" data-product-type="premium">
+            <h3>Premium Package</h3>
+            <p>For professional users</p>
+            <button data-element-id="buy-button" data-price="19.99">Buy for $19.99</button>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section data-section-id="contact" data-section-type="form">
+        <h2>Contact Us</h2>
+        <form data-element-id="contact-form">
+            <div>
+                <label for="name">Name:</label><br>
+                <input type="text" id="name" data-element-id="name-input">
+            </div>
+            <div style="margin: 10px 0;">
+                <label for="email">Email:</label><br>
+                <input type="email" id="email" data-element-id="email-input">
+            </div>
+            <button type="submit" data-element-id="submit-button">Send Message</button>
+        </form>
+    </section>
+
+    <!-- Include the recorder scripts -->
+    <script src="./recorder.js"></script>
+    <script src="./recording-transmitter.js"></script>
+
+    <!-- Demo interaction handler -->
+    <script>
+        // Add some simple interactions for demo purposes
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault(); // Prevent form submission
+                console.log(`Button clicked: ${button.dataset.elementId}`);
+            });
+        });
+    </script>
+</body>
+</html>
