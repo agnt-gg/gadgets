@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.API_KEY || '1234567890'; // Change this in production
 
 // Database setup
-const dbFile = path.join(__dirname, 'heatmap-data.db');
+const dbFile = path.join(__dirname, 'session-data.db');
 let db;
 
 // Create screenshots directory if it doesn't exist
@@ -466,7 +466,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Redirect root to heatmap viewer
 app.get('/', (req, res) => {
-  res.redirect('/heatmap-viewer.html');
+  res.redirect('/recording-viewer.html');
 });
 
 // Add screenshot endpoint

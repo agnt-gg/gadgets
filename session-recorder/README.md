@@ -111,6 +111,33 @@ this.apiKey = "your-api-key";
 3. Use section and element IDs that are descriptive and consistent
 4. Test recordings on different viewport sizes
 
+## Server Setup
+
+1. Navigate to the backend directory:
+```bash
+cd backend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the server:
+```bash
+npm run start
+```
+
+The server will start on port 3000 by default (http://localhost:3000). You can change the port by setting the `PORT` environment variable.
+
+### Environment Variables
+
+Create a `.env` file in the backend directory with the following variables:
+```env
+PORT=3000
+API_KEY=your_api_key_here
+```
+
 ## License
 
 Apache 2.0 License - Feel free to use in your projects!
