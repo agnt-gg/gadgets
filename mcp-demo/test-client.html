@@ -106,6 +106,31 @@
     </div>
     
     <div class="card">
+        <h2>Resources</h2>
+        <div class="controls">
+            <select id="resourceSelect">
+                <option value="">Select a resource</option>
+            </select>
+            <button id="getResourceBtn">Get Resource</button>
+        </div>
+        <div id="resourceResult" class="log-area" style="height: 120px; margin-top: 10px; display: none;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Prompts</h2>
+        <div class="controls">
+            <select id="promptSelect">
+                <option value="">Select a prompt</option>
+            </select>
+            <div id="promptParams">
+                <!-- Parameters will be added dynamically -->
+            </div>
+            <button id="getPromptBtn">Get Prompt</button>
+        </div>
+        <div id="promptResult" class="log-area" style="height: 120px; margin-top: 10px; display: none;"></div>
+    </div>
+    
+    <div class="card">
         <h2>Log</h2>
         <div id="logArea" class="log-area"></div>
         <div class="controls" style="margin-top: 10px;">
@@ -119,6 +144,8 @@
         let connectionId = null;
         let connectionMode = "sse";
         let availableTools = [];
+        let availableResources = [];
+        let availablePrompts = [];
         const toolParams = document.getElementById('toolParams');
 
         // DOM elements
@@ -134,6 +161,13 @@
         const param1Input = document.getElementById('param1');
         const param2Input = document.getElementById('param2');
         const connectionModeSelect = document.getElementById('connectionMode');
+        const resourceSelect = document.getElementById('resourceSelect');
+        const promptSelect = document.getElementById('promptSelect');
+        const promptParams = document.getElementById('promptParams');
+        const resourceResult = document.getElementById('resourceResult');
+        const promptResult = document.getElementById('promptResult');
+        const getResourceBtn = document.getElementById('getResourceBtn');
+        const getPromptBtn = document.getElementById('getPromptBtn');
 
         // Show/hide appropriate URL input based on connection mode
         connectionModeSelect.addEventListener('change', () => {
@@ -214,8 +248,10 @@
                     connectionStatus.textContent = 'Connected (SSE)';
                     connectionStatus.className = 'status connected';
                     
-                    // Request tools list after connection is established
-                    setTimeout(fetchToolsSSE, 500);
+                    // Request capabilities after connection is established
+                    setTimeout(() => {
+                        fetchCapabilities();
+                    }, 500);
                 };
 
                 // Listen for specific connection event
@@ -266,8 +302,42 @@
                             log(`🔧 AVAILABLE TOOLS: ${availableTools.map(t => t.name).join(', ')}`, false, true);
                         }
                         
+                        // Process resources list response
+                        if (data.jsonrpc === "2.0" && data.id === "resources-list-request" && data.result && data.result.resources) {
+                            availableResources = data.result.resources;
+                            updateResourcesDropdown();
+                            log(`📚 AVAILABLE RESOURCES: ${availableResources.map(r => r.name || r.uri).join(', ')}`, false, true);
+                        }
+                        
+                        // Process prompts list response
+                        if (data.jsonrpc === "2.0" && data.id === "prompts-list-request" && data.result && data.result.prompts) {
+                            availablePrompts = data.result.prompts;
+                            updatePromptsDropdown();
+                            log(`📝 AVAILABLE PROMPTS: ${availablePrompts.map(p => p.name).join(', ')}`, false, true);
+                        }
+                        
+                        // Process resource get response
+                        if (data.jsonrpc === "2.0" && data.id.startsWith('resource-get-') && data.result) {
+                            resourceResult.style.display = 'block';
+                            resourceResult.textContent = JSON.stringify(data.result, null, 2);
+                            log(`📄 RESOURCE RETRIEVED`, false, true);
+                        }
+                        
+                        // Process prompt get response
+                        if (data.jsonrpc === "2.0" && data.id.startsWith('prompt-get-') && data.result) {
+                            promptResult.style.display = 'block';
+                            promptResult.textContent = JSON.stringify(data.result, null, 2);
+                            log(`📄 PROMPT RETRIEVED`, false, true);
+                        }
+                        
                         // If this is a tool call response, display the result
-                        if (data.jsonrpc === "2.0" && data.result && data.result.content) {
+                        if (data.jsonrpc === "2.0" && 
+                            data.result && 
+                            data.result.content && 
+                            Array.isArray(data.result.content) &&
+                            !data.id.startsWith('resource-get-') &&
+                            !data.id.startsWith('prompt-get-')) {
+                            
                             const resultText = data.result.content
                                 .filter(item => item.type === 'text')
                                 .map(item => item.text)
@@ -276,7 +346,7 @@
                             log(`📊 RESULT: ${resultText}`, false, true);
                         }
                     } catch (error) {
-                        log(`Error parsing message: ${error}`, true);
+                        log(`Error parsing message: ${error.message}`, true);
                     }
                 };
 
@@ -353,23 +423,54 @@
                                     
                                     // Process based on message type
                                     if (innerData.jsonrpc === "2.0") {
-                                        // If this is a tools list response
-                                        if (innerData.id === "initial-request" && innerData.result && innerData.result.tools) {
+                                        // If this is a server info response with tools list
+                                        if (innerData.id === "initial-request" && innerData.result) {
                                             // Simulate a server info message similar to SSE
                                             log(`📡 SERVER INFO: Demo v1.0.0`, false, true);
-                                            log(`📋 CAPABILITIES: tools`, false, true);
                                             
-                                            // Process the tools list
-                                            availableTools = innerData.result.tools;
-                                            updateToolsDropdown();
+                                            // Process tools if available
+                                            if (innerData.result.tools) {
+                                                availableTools = innerData.result.tools;
+                                                updateToolsDropdown();
+                                                log(`🔧 AVAILABLE TOOLS: ${availableTools.map(t => t.name).join(', ')}`, false, true);
+                                            }
                                             
-                                            // Then display available tools
-                                            const toolNames = availableTools.map(t => t.name).join(', ');
-                                            log(`🔧 AVAILABLE TOOLS: ${toolNames || 'None'}`, false, true);
+                                            // Process resources if available
+                                            if (innerData.result.resources) {
+                                                availableResources = innerData.result.resources;
+                                                updateResourcesDropdown();
+                                                log(`📚 AVAILABLE RESOURCES: ${availableResources.map(r => r.name || r.uri).join(', ')}`, false, true);
+                                            }
+                                            
+                                            // Process prompts if available
+                                            if (innerData.result.prompts) {
+                                                availablePrompts = innerData.result.prompts;
+                                                updatePromptsDropdown();
+                                                log(`📝 AVAILABLE PROMPTS: ${availablePrompts.map(p => p.name).join(', ')}`, false, true);
+                                            }
+                                        }
+                                        
+                                        // Process resource get response
+                                        if (innerData.id.startsWith('resource-get-') && innerData.result) {
+                                            resourceResult.style.display = 'block';
+                                            resourceResult.textContent = JSON.stringify(innerData.result, null, 2);
+                                            log(`📄 RESOURCE RETRIEVED`, false, true);
+                                        }
+                                        
+                                        // Process prompt get response
+                                        if (innerData.id.startsWith('prompt-get-') && innerData.result) {
+                                            promptResult.style.display = 'block';
+                                            promptResult.textContent = JSON.stringify(innerData.result, null, 2);
+                                            log(`📄 PROMPT RETRIEVED`, false, true);
                                         }
                                         
                                         // If this is a tool call response, display the result
-                                        if (innerData.result && innerData.result.content) {
+                                        if (innerData.result && 
+                                            innerData.result.content && 
+                                            Array.isArray(innerData.result.content) &&
+                                            !innerData.id.startsWith('resource-get-') &&
+                                            !innerData.id.startsWith('prompt-get-')) {
+                                            
                                             const resultText = innerData.result.content
                                                 .filter(item => item.type === 'text')
                                                 .map(item => item.text)
@@ -672,6 +773,275 @@
             
             if (selectedTool) {
                 updateToolParams(selectedTool);
+            }
+        });
+
+        // Add this function to fetch capabilities via SSE
+        function fetchCapabilities() {
+            if (!connectionId) {
+                log('No connection ID yet, waiting...', false);
+                setTimeout(fetchCapabilities, 500);
+                return;
+            }
+            
+            const serverUrl = new URL(sseUrlInput.value);
+            const baseUrl = `${serverUrl.protocol}//${serverUrl.host}`;
+            const messagesUrl = `${baseUrl}/messages`;
+            
+            log('Fetching available tools...');
+            
+            // Send tools/list request
+            fetch(messagesUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Connection-ID': connectionId
+                },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 'tools-list-request',
+                    method: 'tools/list'
+                })
+            }).catch(error => {
+                log(`Error fetching tools: ${error.message}`, true);
+            });
+            
+            log('Fetching available resources...');
+            
+            // Send resources/list request
+            fetch(messagesUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Connection-ID': connectionId
+                },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 'resources-list-request',
+                    method: 'resources/list'
+                })
+            }).catch(error => {
+                log(`Error fetching resources: ${error.message}`, true);
+            });
+            
+            log('Fetching available prompts...');
+            
+            // Send prompts/list request
+            fetch(messagesUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Connection-ID': connectionId
+                },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 'prompts-list-request',
+                    method: 'prompts/list'
+                })
+            }).catch(error => {
+                log(`Error fetching prompts: ${error.message}`, true);
+            });
+        }
+
+        // Add function to update resources dropdown
+        function updateResourcesDropdown() {
+            // Clear existing options except the default
+            while (resourceSelect.options.length > 1) {
+                resourceSelect.remove(1);
+            }
+            
+            // Add resources to dropdown
+            availableResources.forEach(resource => {
+                const option = document.createElement('option');
+                option.value = resource.uri;
+                option.textContent = resource.name || resource.uri;
+                resourceSelect.appendChild(option);
+            });
+            
+            // Enable the dropdown if we have resources
+            resourceSelect.disabled = availableResources.length === 0;
+        }
+        
+        // Add function to update prompts dropdown
+        function updatePromptsDropdown() {
+            // Clear existing options except the default
+            while (promptSelect.options.length > 1) {
+                promptSelect.remove(1);
+            }
+            
+            // Add prompts to dropdown
+            availablePrompts.forEach(prompt => {
+                const option = document.createElement('option');
+                option.value = prompt.name;
+                option.textContent = prompt.name;
+                promptSelect.appendChild(option);
+            });
+            
+            // Enable the dropdown if we have prompts
+            promptSelect.disabled = availablePrompts.length === 0;
+            
+            // Update prompt params for first prompt if available
+            if (availablePrompts.length > 0) {
+                promptSelect.value = availablePrompts[0].name;
+                updatePromptParams(availablePrompts[0]);
+            }
+        }
+        
+        // Add function to update prompt parameters
+        function updatePromptParams(prompt) {
+            promptParams.innerHTML = '';
+            
+            if (prompt && prompt.arguments) {
+                // Create input for each argument
+                prompt.arguments.forEach(arg => {
+                    const input = document.createElement('input');
+                    input.id = `prompt-param-${arg.name}`;
+                    input.className = 'prompt-param';
+                    input.placeholder = arg.name;
+                    
+                    if (arg.required) {
+                        input.placeholder += ' (required)';
+                    }
+                    
+                    promptParams.appendChild(input);
+                });
+            }
+        }
+        
+        // Add event listener for prompt selection change
+        promptSelect.addEventListener('change', () => {
+            const selectedPromptName = promptSelect.value;
+            const selectedPrompt = availablePrompts.find(p => p.name === selectedPromptName);
+            
+            if (selectedPrompt) {
+                updatePromptParams(selectedPrompt);
+            }
+        });
+        
+        // Add event listener for get resource button
+        getResourceBtn.addEventListener('click', async () => {
+            if (!connectionId) {
+                log('No connection ID. Please connect first.', true);
+                return;
+            }
+
+            const resourceUri = resourceSelect.value;
+            if (!resourceUri) {
+                log('Please select a resource', true);
+                return;
+            }
+
+            log(`Getting resource: ${resourceUri}`);
+            
+            const resourceRequest = {
+                jsonrpc: '2.0',
+                id: `resource-get-${Date.now()}`,
+                method: 'resources/get',
+                params: {
+                    uri: resourceUri
+                }
+            };
+
+            if (connectionMode === 'sse') {
+                // Get resource via SSE
+                try {
+                    const serverUrl = new URL(sseUrlInput.value);
+                    const baseUrl = `${serverUrl.protocol}//${serverUrl.host}`;
+                    const messagesUrl = `${baseUrl}/messages`;
+                    
+                    const response = await fetch(messagesUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Connection-ID': connectionId
+                        },
+                        body: JSON.stringify(resourceRequest)
+                    });
+
+                    log(`HTTP response status: ${response.status}`);
+                } catch (error) {
+                    log(`Error getting resource: ${error.message}`, true);
+                }
+            } else {
+                // Get resource via STDIO
+                sendStdioMessage(resourceRequest);
+            }
+        });
+        
+        // Add event listener for get prompt button
+        getPromptBtn.addEventListener('click', async () => {
+            if (!connectionId) {
+                log('No connection ID. Please connect first.', true);
+                return;
+            }
+
+            const promptName = promptSelect.value;
+            if (!promptName) {
+                log('Please select a prompt', true);
+                return;
+            }
+
+            // Find the selected prompt
+            const selectedPrompt = availablePrompts.find(p => p.name === promptName);
+            
+            // Gather arguments from inputs
+            const promptArgs = {};
+            let missingRequired = false;
+            
+            if (selectedPrompt && selectedPrompt.arguments) {
+                selectedPrompt.arguments.forEach(arg => {
+                    const input = document.getElementById(`prompt-param-${arg.name}`);
+                    if (input) {
+                        promptArgs[arg.name] = input.value;
+                        
+                        // Check if required field is empty
+                        if (arg.required && !input.value) {
+                            log(`Missing required argument: ${arg.name}`, true);
+                            missingRequired = true;
+                        }
+                    }
+                });
+            }
+            
+            if (missingRequired) {
+                return;
+            }
+
+            log(`Getting prompt: ${promptName} with args: ${JSON.stringify(promptArgs)}`);
+            
+            const promptRequest = {
+                jsonrpc: '2.0',
+                id: `prompt-get-${Date.now()}`,
+                method: 'prompts/get',
+                params: {
+                    name: promptName,
+                    arguments: promptArgs
+                }
+            };
+
+            if (connectionMode === 'sse') {
+                // Get prompt via SSE
+                try {
+                    const serverUrl = new URL(sseUrlInput.value);
+                    const baseUrl = `${serverUrl.protocol}//${serverUrl.host}`;
+                    const messagesUrl = `${baseUrl}/messages`;
+                    
+                    const response = await fetch(messagesUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Connection-ID': connectionId
+                        },
+                        body: JSON.stringify(promptRequest)
+                    });
+
+                    log(`HTTP response status: ${response.status}`);
+                } catch (error) {
+                    log(`Error getting prompt: ${error.message}`, true);
+                }
+            } else {
+                // Get prompt via STDIO
+                sendStdioMessage(promptRequest);
             }
         });
 
