@@ -16,6 +16,13 @@ server.tool("add",
   })
 );
 
+server.tool("subtract",
+  { a: z.number(), b: z.number() },
+  async ({ a, b }) => ({
+    content: [{ type: "text", text: String(a - b) }]
+  })
+);
+
 // Add a dynamic greeting resource
 server.resource(
   "greeting",

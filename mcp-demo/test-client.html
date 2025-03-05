@@ -94,10 +94,13 @@
         <h2>Tool Call</h2>
         <div class="controls">
             <select id="toolSelect">
-                <option value="add">add</option>
+                <option value="">Select a tool</option>
             </select>
-            <input type="number" id="param1" value="5" placeholder="Value A">
-            <input type="number" id="param2" value="3" placeholder="Value B">
+            <div id="toolParams">
+                <!-- Parameters will be added dynamically -->
+                <input type="number" id="param1" value="5" placeholder="Value A">
+                <input type="number" id="param2" value="3" placeholder="Value B">
+            </div>
             <button id="callToolBtn">Call Tool</button>
         </div>
     </div>
@@ -115,6 +118,8 @@
         let eventSource = null;
         let connectionId = null;
         let connectionMode = "sse";
+        let availableTools = [];
+        const toolParams = document.getElementById('toolParams');
 
         // DOM elements
         const connectBtn = document.getElementById('connectBtn');
@@ -208,6 +213,9 @@
                     log('SSE connection opened');
                     connectionStatus.textContent = 'Connected (SSE)';
                     connectionStatus.className = 'status connected';
+                    
+                    // Request tools list after connection is established
+                    setTimeout(fetchToolsSSE, 500);
                 };
 
                 // Listen for specific connection event
@@ -249,6 +257,13 @@
                             if (capabilities.length > 0) {
                                 log(`📋 CAPABILITIES: ${capabilities.join(', ')}`, false, true);
                             }
+                        }
+                        
+                        // Process tools list response
+                        if (data.jsonrpc === "2.0" && data.id === "tools-list-request" && data.result && data.result.tools) {
+                            availableTools = data.result.tools;
+                            updateToolsDropdown();
+                            log(`🔧 AVAILABLE TOOLS: ${availableTools.map(t => t.name).join(', ')}`, false, true);
                         }
                         
                         // If this is a tool call response, display the result
@@ -338,14 +353,18 @@
                                     
                                     // Process based on message type
                                     if (innerData.jsonrpc === "2.0") {
-                                        // If this is a server info response with tools list
+                                        // If this is a tools list response
                                         if (innerData.id === "initial-request" && innerData.result && innerData.result.tools) {
                                             // Simulate a server info message similar to SSE
                                             log(`📡 SERVER INFO: Demo v1.0.0`, false, true);
                                             log(`📋 CAPABILITIES: tools`, false, true);
                                             
+                                            // Process the tools list
+                                            availableTools = innerData.result.tools;
+                                            updateToolsDropdown();
+                                            
                                             // Then display available tools
-                                            const toolNames = innerData.result.tools.map(t => t.name).join(', ');
+                                            const toolNames = availableTools.map(t => t.name).join(', ');
                                             log(`🔧 AVAILABLE TOOLS: ${toolNames || 'None'}`, false, true);
                                         }
                                         
@@ -459,12 +478,37 @@
             }
 
             const toolName = toolSelect.value;
-            const param1 = parseFloat(param1Input.value);
-            const param2 = parseFloat(param2Input.value);
-
-            if (isNaN(param1) || isNaN(param2)) {
-                log('Please enter valid numbers for parameters', true);
+            if (!toolName) {
+                log('Please select a tool', true);
                 return;
+            }
+
+            // Find the selected tool
+            const selectedTool = availableTools.find(t => t.name === toolName);
+            
+            // Gather parameters from inputs
+            const toolArgs = {};
+            if (selectedTool && selectedTool.inputSchema && selectedTool.inputSchema.properties) {
+                // Get parameters from dynamic inputs
+                Object.keys(selectedTool.inputSchema.properties).forEach(name => {
+                    const input = document.getElementById(`param-${name}`);
+                    if (input) {
+                        const value = input.type === 'number' ? parseFloat(input.value) : input.value;
+                        toolArgs[name] = value;
+                    }
+                });
+            } else {
+                // Fallback to default parameters
+                const param1 = parseFloat(document.getElementById('param1')?.value || '0');
+                const param2 = parseFloat(document.getElementById('param2')?.value || '0');
+                
+                if (isNaN(param1) || isNaN(param2)) {
+                    log('Please enter valid numbers for parameters', true);
+                    return;
+                }
+                
+                toolArgs.a = param1;
+                toolArgs.b = param2;
             }
 
             const toolRequest = {
@@ -473,9 +517,11 @@
                 method: 'tools/call',
                 params: {
                     name: toolName,
-                    arguments: { a: param1, b: param2 }
+                    arguments: toolArgs
                 }
             };
+
+            log(`Calling tool '${toolName}' with params: ${JSON.stringify(toolArgs)}`);
 
             if (connectionMode === 'sse') {
                 // Call tool via SSE
@@ -483,8 +529,6 @@
                     const serverUrl = new URL(sseUrlInput.value);
                     const baseUrl = `${serverUrl.protocol}//${serverUrl.host}`;
                     const messagesUrl = `${baseUrl}/messages`;
-
-                    log(`Calling tool '${toolName}' with params: ${param1}, ${param2}`);
                     
                     const response = await fetch(messagesUrl, {
                         method: 'POST',
@@ -513,7 +557,6 @@
                 }
             } else {
                 // Call tool via STDIO
-                log(`Calling tool '${toolName}' with params: ${param1}, ${param2} via STDIO`);
                 sendStdioMessage(toolRequest);
             }
         });
@@ -521,6 +564,115 @@
         // Clear the log
         clearLogBtn.addEventListener('click', () => {
             logArea.innerHTML = '';
+        });
+
+        // Add this function to fetch tools via SSE
+        function fetchToolsSSE() {
+            if (!connectionId) {
+                log('No connection ID yet, waiting...', false);
+                setTimeout(fetchToolsSSE, 500);
+                return;
+            }
+            
+            const serverUrl = new URL(sseUrlInput.value);
+            const baseUrl = `${serverUrl.protocol}//${serverUrl.host}`;
+            const messagesUrl = `${baseUrl}/messages`;
+            
+            log('Fetching available tools...');
+            
+            // Send tools/list request
+            fetch(messagesUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Connection-ID': connectionId
+                },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 'tools-list-request',
+                    method: 'tools/list'
+                })
+            }).catch(error => {
+                log(`Error fetching tools: ${error.message}`, true);
+            });
+        }
+
+        // Add this function to update the tools dropdown
+        function updateToolsDropdown() {
+            // Clear existing options except the default
+            while (toolSelect.options.length > 1) {
+                toolSelect.remove(1);
+            }
+            
+            // Add tools to dropdown
+            availableTools.forEach(tool => {
+                const option = document.createElement('option');
+                option.value = tool.name;
+                option.textContent = tool.name;
+                toolSelect.appendChild(option);
+            });
+            
+            // Enable the dropdown if we have tools
+            toolSelect.disabled = availableTools.length === 0;
+            
+            // Default to first tool if available
+            if (availableTools.length > 0) {
+                toolSelect.value = availableTools[0].name;
+                updateToolParams(availableTools[0]);
+            }
+        }
+        
+        // Add this function to update parameter inputs based on selected tool
+        function updateToolParams(tool) {
+            toolParams.innerHTML = '';
+            
+            if (tool && tool.inputSchema && tool.inputSchema.properties) {
+                const properties = tool.inputSchema.properties;
+                
+                // Create input for each property
+                Object.entries(properties).forEach(([name, schema]) => {
+                    const input = document.createElement('input');
+                    input.id = `param-${name}`;
+                    input.className = 'tool-param';
+                    input.placeholder = name;
+                    
+                    // Set type based on schema
+                    if (schema.type === 'number') {
+                        input.type = 'number';
+                        input.value = '0';
+                    } else {
+                        input.type = 'text';
+                    }
+                    
+                    toolParams.appendChild(input);
+                });
+            } else {
+                // Default parameters if schema not available
+                const param1 = document.createElement('input');
+                param1.type = 'number';
+                param1.id = 'param1';
+                param1.value = '5';
+                param1.placeholder = 'Value A';
+                
+                const param2 = document.createElement('input');
+                param2.type = 'number';
+                param2.id = 'param2';
+                param2.value = '3';
+                param2.placeholder = 'Value B';
+                
+                toolParams.appendChild(param1);
+                toolParams.appendChild(param2);
+            }
+        }
+        
+        // Add event listener for tool selection change
+        toolSelect.addEventListener('change', () => {
+            const selectedToolName = toolSelect.value;
+            const selectedTool = availableTools.find(t => t.name === selectedToolName);
+            
+            if (selectedTool) {
+                updateToolParams(selectedTool);
+            }
         });
 
         // Initial log message
