@@ -1,0 +1,24 @@
+{
+  "name": "mcp-test-kit",
+  "version": "1.0.0",
+  "description": "Simple MCP testing environment",
+  "type": "module",
+  "scripts": {
+    "start": "npm-run-all --parallel start:sse-server start:stdio-proxy serve",
+    "start:sse-server": "node ./mcp-sse.js",
+    "start:stdio-proxy": "node ./stdio-proxy.js",
+    "serve": "npx serve -p 8000",
+    "test": "node ./test-client.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "cors": "^2.8.5",
+    "eventsource": "^2.0.2",
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2",
+    "npm-run-all": "^4.1.5",
+    "serve": "^14.2.1",
+    "uuid": "^9.0.1",
+    "zod": "^3.22.4"
+  }
+}

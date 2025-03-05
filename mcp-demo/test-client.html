@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Test Client</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 8px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 8px;
+            font-size: 14px;
+        }
+        .log-area {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .status {
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.connected {
+            color: green;
+        }
+        .status.disconnected {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>MCP Test Client</h1>
+    
+    <div class="card">
+        <h2>Connection</h2>
+        <div class="controls">
+            <select id="connectionMode">
+                <option value="sse">SSE</option>
+                <option value="stdio-proxy">STDIO via Proxy</option>
+            </select>
+            <input type="text" id="sseUrl" value="http://localhost:3001/sse" placeholder="SSE URL">
+            <input type="text" id="stdioProxyUrl" value="http://localhost:3002" placeholder="STDIO Proxy URL" style="display:none;">
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn">Disconnect</button>
+            <span id="connectionStatus" class="status disconnected">Disconnected</span>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Tool Call</h2>
+        <div class="controls">
+            <select id="toolSelect">
+                <option value="add">add</option>
+            </select>
+            <input type="number" id="param1" value="5" placeholder="Value A">
+            <input type="number" id="param2" value="3" placeholder="Value B">
+            <button id="callToolBtn">Call Tool</button>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Log</h2>
+        <div id="logArea" class="log-area"></div>
+        <div class="controls" style="margin-top: 10px;">
+            <button id="clearLogBtn">Clear Log</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let eventSource = null;
+        let connectionId = null;
+        let connectionMode = "sse";
+
+        // DOM elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const sseUrlInput = document.getElementById('sseUrl');
+        const stdioProxyUrlInput = document.getElementById('stdioProxyUrl');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const logArea = document.getElementById('logArea');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        const callToolBtn = document.getElementById('callToolBtn');
+        const toolSelect = document.getElementById('toolSelect');
+        const param1Input = document.getElementById('param1');
+        const param2Input = document.getElementById('param2');
+        const connectionModeSelect = document.getElementById('connectionMode');
+
+        // Show/hide appropriate URL input based on connection mode
+        connectionModeSelect.addEventListener('change', () => {
+            connectionMode = connectionModeSelect.value;
+            if (connectionMode === 'sse') {
+                sseUrlInput.style.display = 'inline-block';
+                stdioProxyUrlInput.style.display = 'none';
+            } else {
+                sseUrlInput.style.display = 'none';
+                stdioProxyUrlInput.style.display = 'inline-block';
+            }
+        });
+
+        // Helper to add log messages
+        function log(message, isError = false, isHighlight = false) {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            
+            // Handle multi-line JSON nicely
+            if (message.startsWith('\n')) {
+                // Create a pre element for formatted text
+                entry.innerHTML = `[${timestamp}] `;
+                const pre = document.createElement('pre');
+                pre.style.margin = '5px 0 5px 20px';
+                pre.style.padding = '8px';
+                pre.style.backgroundColor = '#f5f5f5';
+                pre.style.border = '1px solid #ddd';
+                pre.style.borderRadius = '3px';
+                pre.style.maxHeight = '150px';
+                pre.style.overflow = 'auto';
+                pre.textContent = message.substring(1); // Remove the leading newline
+                entry.appendChild(pre);
+            } else {
+                entry.textContent = `[${timestamp}] ${message}`;
+            }
+            
+            if (isError) {
+                entry.style.color = 'red';
+            }
+            if (isHighlight) {
+                entry.style.color = '#0066cc';
+                entry.style.fontWeight = 'bold';
+            }
+            logArea.appendChild(entry);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // Connect button handler
+        connectBtn.addEventListener('click', () => {
+            connectionMode = connectionModeSelect.value;
+            
+            if (connectionMode === 'sse') {
+                connectSSE();
+            } else {
+                connectStdioProxy();
+            }
+        });
+
+        // Connect to SSE endpoint
+        function connectSSE() {
+            const url = sseUrlInput.value.trim();
+            if (!url) {
+                log('Please enter a valid SSE URL', true);
+                return;
+            }
+
+            if (eventSource) {
+                log('Already connected. Disconnect first.', true);
+                return;
+            }
+
+            try {
+                log(`Connecting to SSE at ${url}...`);
+                eventSource = new EventSource(url);
+
+                eventSource.onopen = () => {
+                    log('SSE connection opened');
+                    connectionStatus.textContent = 'Connected (SSE)';
+                    connectionStatus.className = 'status connected';
+                };
+
+                // Listen for specific connection event
+                eventSource.addEventListener('connection', (event) => {
+                    log(`Received connection event: ${event.data}`);
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.connectionId) {
+                            connectionId = data.connectionId;
+                            log(`Connection ID received: ${connectionId}`, false, true);
+                        }
+                    } catch (error) {
+                        log(`Error parsing connection data: ${error}`, true);
+                    }
+                });
+
+                // Handle regular messages
+                eventSource.onmessage = (event) => {
+                    log(`Received SSE message: ${event.data}`);
+                    
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        // Pretty-print the parsed data
+                        log(`Parsed SSE message: ${JSON.stringify(data, null, 2)}`);
+                        
+                        // Also check for connection ID in regular messages as fallback
+                        if (!connectionId && data.connectionId) {
+                            connectionId = data.connectionId;
+                            log(`Connection ID received from message: ${connectionId}`, false, true);
+                        }
+                        
+                        // If this is a server info response, highlight it
+                        if (data.jsonrpc === "2.0" && data.id === "server.info" && data.result) {
+                            log(`📡 SERVER INFO: ${data.result.name} v${data.result.version}`, false, true);
+                            
+                            // Show available capabilities
+                            const capabilities = Object.keys(data.result.capabilities || {});
+                            if (capabilities.length > 0) {
+                                log(`📋 CAPABILITIES: ${capabilities.join(', ')}`, false, true);
+                            }
+                        }
+                        
+                        // If this is a tool call response, display the result
+                        if (data.jsonrpc === "2.0" && data.result && data.result.content) {
+                            const resultText = data.result.content
+                                .filter(item => item.type === 'text')
+                                .map(item => item.text)
+                                .join(' ');
+                            
+                            log(`📊 RESULT: ${resultText}`, false, true);
+                        }
+                    } catch (error) {
+                        log(`Error parsing message: ${error}`, true);
+                    }
+                };
+
+                eventSource.onerror = (error) => {
+                    log(`SSE error: ${error.message || 'Unknown error'}`, true);
+                    connectionStatus.textContent = 'Error';
+                    connectionStatus.className = 'status disconnected';
+                    
+                    // If connection refused, suggest trying STDIO mode
+                    if (error && error.message && error.message.includes('ECONNREFUSED')) {
+                        log('Connection refused. Try STDIO mode instead.', true);
+                    }
+                };
+            } catch (error) {
+                log(`Failed to connect: ${error.message}`, true);
+            }
+        }
+
+        // Connect to STDIO via a proxy
+        function connectStdioProxy() {
+            const url = stdioProxyUrlInput.value.trim();
+            if (!url) {
+                log('Please enter a valid STDIO proxy URL', true);
+                return;
+            }
+
+            if (eventSource) {
+                log('Already connected. Disconnect first.', true);
+                return;
+            }
+
+            // Create a proxy server on your own
+            log('Setting up STDIO proxy...');
+            
+            // First, create the STDIO process
+            fetch(`${url}/start`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    command: 'node',
+                    args: ['mcp-stdio.js']
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    connectionId = data.sessionId;
+                    log(`STDIO process started with session ID: ${connectionId}`, false, true);
+                    connectionStatus.textContent = 'Connected (STDIO)';
+                    connectionStatus.className = 'status connected';
+                    
+                    // Start listening for STDIO process outputs
+                    eventSource = new EventSource(`${url}/events/${connectionId}`);
+                    
+                    eventSource.onmessage = (event) => {
+                        log(`Received STDIO message: ${event.data}`);
+                        
+                        try {
+                            const outerData = JSON.parse(event.data);
+                            
+                            // If this is output data that contains JSON
+                            if (outerData.type === 'output' && outerData.data && 
+                                typeof outerData.data === 'string' && 
+                                (outerData.data.startsWith('{') || outerData.data.startsWith('['))) {
+                                
+                                try {
+                                    // Parse the inner JSON from the STDIO output
+                                    const innerData = JSON.parse(outerData.data);
+                                    
+                                    // Format and log the parsed inner JSON
+                                    log(`\nParsed STDIO message: ${JSON.stringify(innerData, null, 2)}`);
+                                    
+                                    // Process based on message type
+                                    if (innerData.jsonrpc === "2.0") {
+                                        // If this is a server info response with tools list
+                                        if (innerData.id === "initial-request" && innerData.result && innerData.result.tools) {
+                                            // Simulate a server info message similar to SSE
+                                            log(`📡 SERVER INFO: Demo v1.0.0`, false, true);
+                                            log(`📋 CAPABILITIES: tools`, false, true);
+                                            
+                                            // Then display available tools
+                                            const toolNames = innerData.result.tools.map(t => t.name).join(', ');
+                                            log(`🔧 AVAILABLE TOOLS: ${toolNames || 'None'}`, false, true);
+                                        }
+                                        
+                                        // If this is a tool call response, display the result
+                                        if (innerData.result && innerData.result.content) {
+                                            const resultText = innerData.result.content
+                                                .filter(item => item.type === 'text')
+                                                .map(item => item.text)
+                                                .join(' ');
+                                            
+                                            log(`📊 RESULT: ${resultText}`, false, true);
+                                        }
+                                    }
+                                } catch (e) {
+                                    // Inner JSON parsing failed, just continue
+                                }
+                            } else if (outerData.type === 'error') {
+                                log(`STDIO Error: ${outerData.data}`, true);
+                            }
+                        } catch (error) {
+                            log(`Error parsing message: ${error}`, true);
+                        }
+                    };
+                    
+                    eventSource.onerror = (error) => {
+                        log(`STDIO event stream error: ${error.message || 'Unknown error'}`, true);
+                    };
+                    
+                    // Send initial request to list tools
+                    const toolsListRequest = {
+                        jsonrpc: "2.0",
+                        id: "initial-request",
+                        method: "tools/list"
+                    };
+                    
+                    sendStdioMessage(toolsListRequest);
+                } else {
+                    log(`Failed to start STDIO process: ${data.error}`, true);
+                }
+            })
+            .catch(error => {
+                log(`STDIO proxy error: ${error.message}`, true);
+            });
+        }
+
+        // Send a message to the STDIO process
+        function sendStdioMessage(message) {
+            if (!connectionId) {
+                log('No active STDIO session', true);
+                return;
+            }
+            
+            const url = stdioProxyUrlInput.value.trim();
+            
+            fetch(`${url}/send/${connectionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(message)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    log(`Failed to send message: ${data.error}`, true);
+                }
+            })
+            .catch(error => {
+                log(`Error sending message: ${error.message}`, true);
+            });
+        }
+
+        // Disconnect from server
+        disconnectBtn.addEventListener('click', () => {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                
+                // If STDIO mode, also terminate the process
+                if (connectionMode === 'stdio-proxy' && connectionId) {
+                    const url = stdioProxyUrlInput.value.trim();
+                    
+                    fetch(`${url}/terminate/${connectionId}`, {
+                        method: 'POST'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            log('STDIO process terminated');
+                        } else {
+                            log(`Failed to terminate STDIO process: ${data.error}`, true);
+                        }
+                    })
+                    .catch(error => {
+                        log(`Error terminating process: ${error.message}`, true);
+                    });
+                }
+                
+                connectionId = null;
+                log('Disconnected from server');
+                connectionStatus.textContent = 'Disconnected';
+                connectionStatus.className = 'status disconnected';
+            }
+        });
+
+        // Call the selected tool
+        callToolBtn.addEventListener('click', async () => {
+            if (!connectionId) {
+                log('No connection ID. Please connect first.', true);
+                return;
+            }
+
+            const toolName = toolSelect.value;
+            const param1 = parseFloat(param1Input.value);
+            const param2 = parseFloat(param2Input.value);
+
+            if (isNaN(param1) || isNaN(param2)) {
+                log('Please enter valid numbers for parameters', true);
+                return;
+            }
+
+            const toolRequest = {
+                jsonrpc: '2.0',
+                id: Date.now().toString(),
+                method: 'tools/call',
+                params: {
+                    name: toolName,
+                    arguments: { a: param1, b: param2 }
+                }
+            };
+
+            if (connectionMode === 'sse') {
+                // Call tool via SSE
+                try {
+                    const serverUrl = new URL(sseUrlInput.value);
+                    const baseUrl = `${serverUrl.protocol}//${serverUrl.host}`;
+                    const messagesUrl = `${baseUrl}/messages`;
+
+                    log(`Calling tool '${toolName}' with params: ${param1}, ${param2}`);
+                    
+                    const response = await fetch(messagesUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Connection-ID': connectionId
+                        },
+                        body: JSON.stringify(toolRequest)
+                    });
+
+                    const contentType = response.headers.get('content-type');
+                    const text = await response.text();
+                    
+                    log(`HTTP response (${response.status}): ${text}`);
+                    
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            const json = JSON.parse(text);
+                            log(`Parsed response: ${JSON.stringify(json, null, 2)}`);
+                        } catch (e) {
+                            log('Failed to parse JSON response', true);
+                        }
+                    }
+                } catch (error) {
+                    log(`Error calling tool: ${error.message}`, true);
+                }
+            } else {
+                // Call tool via STDIO
+                log(`Calling tool '${toolName}' with params: ${param1}, ${param2} via STDIO`);
+                sendStdioMessage(toolRequest);
+            }
+        });
+
+        // Clear the log
+        clearLogBtn.addEventListener('click', () => {
+            logArea.innerHTML = '';
+        });
+
+        // Initial log message
+        log('MCP Test Client ready. Click "Connect" to start.');
+    </script>
+</body>
+</html> 
