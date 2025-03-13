@@ -1,0 +1,129 @@
+{
+    "title": "Vultisig MPC",
+    "category": "action",
+    "type": "vultisig-mpc",
+    "icon": "key-shield",
+    "description": "Performs secure multi-party computation operations for cryptographic key management and signing",
+    "parameters": {
+      "operation": {
+        "type": "string",
+        "inputType": "select",
+        "options": ["createVault", "signTransaction", "deriveChildKey", "exportPublicKey"],
+        "description": "The MPC operation to perform",
+        "default": "createVault"
+      },
+      "partyRole": {
+        "type": "string",
+        "inputType": "select",
+        "options": ["initiator", "participant"],
+        "description": "Whether this party initiates or participates in the MPC process",
+        "default": "initiator"
+      },
+      "partyId": {
+        "type": "string",
+        "inputType": "text",
+        "description": "Unique identifier for this party",
+        "default": ""
+      },
+      "otherParties": {
+        "type": "string",
+        "inputType": "text",
+        "description": "Comma-separated list of other party IDs in the committee",
+        "default": ""
+      },
+      "sessionId": {
+        "type": "string",
+        "inputType": "text",
+        "description": "Session ID for the MPC communication (leave empty to generate automatically)",
+        "default": ""
+      },
+      "threshold": {
+        "type": "number",
+        "inputType": "number",
+        "description": "Number of parties required to sign (defaults to all parties)",
+        "default": 0,
+        "conditional": {
+          "field": "operation",
+          "value": "createVault"
+        }
+      },
+      "apiKey": {
+        "type": "string",
+        "inputType": "password",
+        "description": "Vultisig API key (if not using OAuth)"
+      },
+      "encryptionKey": {
+        "type": "string",
+        "inputType": "password",
+        "description": "Optional custom encryption key (64-character hex) or leave blank to generate"
+      },
+      "keyData": {
+        "type": "string",
+        "inputType": "codearea",
+        "description": "Key data from previous operations (JSON format)",
+        "conditional": {
+          "field": "operation",
+          "value": ["signTransaction", "deriveChildKey", "exportPublicKey"]
+        }
+      },
+      "transactionData": {
+        "type": "string",
+        "inputType": "codearea",
+        "description": "Transaction data to sign (hex format)",
+        "conditional": {
+          "field": "operation",
+          "value": "signTransaction"
+        }
+      },
+      "derivationPath": {
+        "type": "string",
+        "inputType": "text",
+        "description": "HD wallet derivation path (e.g., m/44'/0'/0'/0/0)",
+        "default": "m/44'/0'/0'/0/0",
+        "conditional": {
+          "field": "operation",
+          "value": "deriveChildKey"
+        }
+      },
+      "timeoutSeconds": {
+        "type": "number",
+        "inputType": "number",
+        "description": "Maximum seconds to wait for operation completion",
+        "default": 180
+      }
+    },
+    "outputs": {
+      "success": {
+        "type": "boolean",
+        "description": "Whether the operation completed successfully"
+      },
+      "sessionId": {
+        "type": "string",
+        "description": "The session ID used for the MPC operation"
+      },
+      "operation": {
+        "type": "string",
+        "description": "The operation that was performed"
+      },
+      "keyData": {
+        "type": "object",
+        "description": "Key data to be stored for future operations"
+      },
+      "publicKeys": {
+        "type": "object",
+        "description": "Generated public keys (ECDSA and EdDSA)"
+      },
+      "address": {
+        "type": "string",
+        "description": "Derived blockchain address (when applicable)"
+      },
+      "signature": {
+        "type": "string",
+        "description": "Generated signature (when signing a transaction)"
+      },
+      "error": {
+        "type": "string",
+        "description": "Error message if operation failed"
+      }
+    }
+  }
