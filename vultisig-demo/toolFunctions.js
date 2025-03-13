@@ -1,4 +1,5 @@
 // this file is the main tool file that is used to execute the Vultisig MPC operations
+// this assumes using a remote API endpoint for the Vultisig MPC operations
 
 import BaseAction from "./BaseAction.js";
 import axios from "axios";
