@@ -9,13 +9,28 @@ The Vultisig tool enables secure cryptographic operations across multiple partie
 - **Derive Child Keys**: Generate hierarchical deterministic wallet addresses
 - **Export Public Keys**: Share public key information without compromising security
 
+## DeFi Use Cases
+
+Transform these natural language instructions into automated workflows with Vultisig's secure wallet technology:
+
+1. **Treasury Management**: "When a withdrawal request exceeds $50,000, require approval from 2 of 3 board members before executing the transaction."
+
+2. **Trading Strategy**: "If ETH drops below $3,500, execute a DCA strategy that buys $500 worth every 12 hours until my allocation reaches $10,000, with each purchase requiring confirmation from both my financial advisor and myself."
+
+3. **Cross-Chain Operations**: "Move USDC from Ethereum to Solana whenever the gas price on Ethereum drops below 20 gwei, but only after getting approval from the compliance team."
+
+4. **Enterprise Key Recovery**: "Create a 3-of-5 vault where any three executives can collaborate to recover critical infrastructure keys if the primary administrator is unavailable."
+
+5. **Automated Payments**: "Pay our contractors on the 1st of each month, requiring signatures from both accounting and the department head, with notification to the CEO for payments over $10,000."
+
+6. **Conditional Security Protocol**: "If our security monitoring system detects unusual activity, lock all transfers for 24 hours unless 2 of 3 security officers explicitly approve each transaction."
+
 ## Getting Started
 
 1. **Connect to Vultisig**: Go to Settings -> Connected Services and connect your Vultisig account
 2. **Create a Vault**: Use the "createVault" operation with at least one other party
 3. **Store Key Data**: Save the returned key data securely for future operations
 4. **Perform Operations**: Use the stored key data for signing and other operations
-
 
 ## Adding the Vultisig SDK to Your System
 
