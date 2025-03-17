@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Node-Edge Connection MVP with Snap Grid and Orthogonal Paths</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@100..900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --color-pink: #e53d8f;
+        --color-green: #19ef83;
+        --color-blue: #12e0ff;
+        --color-yellow: #ffd700;
+        --color-white: #f7f8f0;
+
+        --color-black-navy: #070710;
+        --color-ultra-dark-navy: #0b0b17;
+        --color-dark-navy: #10101f;
+        --color-navy: #131322;
+        --color-dull-navy: #1f1f2f;
+        --color-duller-navy: #3e405a;
+        --color-med-navy: #7f8193;
+        --color-light-navy: #d9d9d9;
+        --color-bright-light-navy: #ebebeb;
+        --color-ultra-light-navy: #fafafa;
+        --color-dull-white: #f7f7f7;
+
+        --base-font-size: 16px;
+        --font-size-xs: calc(var(--base-font-size) * 0.75);
+        --font-size-sm: calc(var(--base-font-size) * 0.875);
+        --font-size-md: calc(var(--base-font-size) * 1.125);
+        --font-size-lg: calc(var(--base-font-size) * 1.25);
+        --font-size-xl: calc(var(--base-font-size) * 1.5);
+        --font-size-xxl: calc(var(--base-font-size) * 2);
+        --grid-size: 16px;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "League Spartan", sans-serif;
+        font-size: var(--base-font-size);
+        font-weight: 400;
+        line-height: 150%;
+        background: var(--color-bright-light-navy);
+        color: var(--color-dull-navy);
+        width: 100vw;
+        height: 100vh;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        overflow: hidden;
+      }
+
+      #canvas {
+        width: 100%;
+        height: 100%;
+        background-color: var(--color-bright-light-navy);
+        position: relative;
+        background-image: radial-gradient(
+          circle,
+          rgba(127, 129, 147, 0.2) 1px,
+          transparent 1px
+        );
+        background-size: var(--grid-size) var(--grid-size);
+        background-position: calc(var(--grid-size) / 2)
+          calc(var(--grid-size) / 2);
+      }
+
+      .node {
+        width: calc(6 * var(--grid-size));
+        height: calc(5 * var(--grid-size));
+        position: absolute;
+        cursor: move;
+        user-select: none;
+      }
+
+      .node-background {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        background-color: var(--color-dull-navy);
+        clip-path: polygon(
+          25% 0%,
+          75% 0%,
+          100% 50%,
+          75% 100%,
+          25% 100%,
+          0% 50%
+        );
+        z-index: 0;
+      }
+
+      .node-background::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: 2px;
+        bottom: 2px;
+        background-color: var(--color-white);
+        clip-path: inherit;
+      }
+
+      .node-content {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        z-index: 1;
+        color: var(--color-dull-navy);
+        font-weight: 500;
+      }
+
+      .connector {
+        width: calc(var(--grid-size) / 2);
+        height: calc(var(--grid-size) / 2);
+        background-color: var(--color-dull-navy);
+        border-radius: 50%;
+        position: absolute;
+        cursor: pointer;
+        z-index: 2;
+      }
+
+      .input {
+        left: -4px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      .output {
+        right: -4px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      #add-node-btn {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 10px;
+        background-color: var(--color-green);
+        color: var(--color-dull-navy);
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-family: "League Spartan", sans-serif;
+        font-weight: 600;
+      }
+
+      @keyframes breathe {
+        0%,
+        100% {
+          border-width: 2px;
+        }
+        50% {
+          border-width: 4px;
+        }
+      }
+
+      @keyframes error-breathe-inset {
+        0%,
+        100% {
+          box-shadow: inset 0 0 0 1px;
+        }
+        50% {
+          box-shadow: inset 0 0 0 2px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas">
+      <svg id="edges"></svg>
+      <div class="node" id="node1" style="left: 864px; top: 448px">
+        <div class="node-background"></div>
+        <div class="node-content">Node 1</div>
+        <div class="connector input" data-node="1" data-type="input"></div>
+        <div class="connector output" data-node="1" data-type="output"></div>
+      </div>
+      <div class="node" id="node2" style="left: 960px; top: 448px">
+        <div class="node-background"></div>
+        <div class="node-content">Node 2</div>
+        <div class="connector input" data-node="2" data-type="input"></div>
+        <div class="connector output" data-node="2" data-type="output"></div>
+      </div>
+    </div>
+    <button id="add-node-btn">Add Node</button>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const edgesSvg = document.getElementById("edges");
+      const addNodeBtn = document.getElementById("add-node-btn");
+      const gridSize = 16; // Match this with the CSS --grid-size
+      let nodeCount = 2;
+      let isDragging = false;
+      let draggedNode = null;
+      let offsetX, offsetY;
+      let isConnecting = false;
+      let startConnector = null;
+      let ghostLine = null;
+      const edges = [];
+
+      // AUTOGROWTH
+
+      let autoGrowIntervalId = null;
+      let lastAddedNode = null;
+
+      function startAutoGrow() {
+        if (!autoGrowIntervalId) {
+          autoGrowIntervalId = setInterval(autoGrowStep, 100); // Run every .1 seconds
+        }
+      }
+
+      function stopAutoGrow() {
+        if (autoGrowIntervalId) {
+          clearInterval(autoGrowIntervalId);
+          autoGrowIntervalId = null;
+        }
+      }
+
+      function autoGrowStep() {
+        const existingNodes = document.querySelectorAll(".node");
+        if (existingNodes.length === 0) {
+          lastAddedNode = addNode(96, 96); // Add first node if none exist
+          return;
+        }
+
+        const parentNode =
+          lastAddedNode ||
+          existingNodes[Math.floor(Math.random() * existingNodes.length)];
+        const parentRect = parentNode.getBoundingClientRect();
+
+        // Hexagonal directions (honeycomb pattern)
+        const directions = [
+          { dx: 6 * gridSize, dy: 0 }, // Right
+          { dx: 3 * gridSize, dy: 5 * gridSize }, // Down-right
+          { dx: -3 * gridSize, dy: 5 * gridSize }, // Down-left
+          { dx: -6 * gridSize, dy: 0 }, // Left
+          { dx: -3 * gridSize, dy: -5 * gridSize }, // Up-left
+          { dx: 3 * gridSize, dy: -5 * gridSize }, // Up-right
+        ];
+
+        // Randomly shuffle the directions array
+        for (let i = directions.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [directions[i], directions[j]] = [directions[j], directions[i]];
+        }
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const nodeWidth = 6 * gridSize;
+        const nodeHeight = 5 * gridSize;
+
+        for (const dir of directions) {
+          const newX = parentRect.left + dir.dx - canvasRect.left;
+          const newY = parentRect.top + dir.dy - canvasRect.top;
+
+          // Check if the new position is within the canvas bounds
+          if (
+            newX >= 0 &&
+            newX + nodeWidth <= canvasRect.width &&
+            newY >= 0 &&
+            newY + nodeHeight <= canvasRect.height &&
+            isPositionEmpty(newX, newY)
+          ) {
+            // Look ahead and score the position
+            const score = lookAhead(newX, newY, 4); // Look 4 steps ahead
+
+            if (score > 0) {
+              // Add new node
+              lastAddedNode = addNode(newX, newY);
+
+              // Connect new node to parent
+              const parentOutput = parentNode.querySelector(".output");
+              const newInput = lastAddedNode.querySelector(".input");
+              createEdge(parentOutput, newInput);
+
+              // Connect to nearby nodes
+              connectToNearbyNodes(lastAddedNode);
+              return;
+            }
+          }
+        }
+
+        console.log("No valid position found for new node");
+      }
+
+      function lookAhead(x, y, depth) {
+        if (depth === 0) return 1;
+
+        let score = 0;
+        const directions = [
+          { dx: 6 * gridSize, dy: 0 },
+          { dx: 3 * gridSize, dy: 5 * gridSize },
+          { dx: -3 * gridSize, dy: 5 * gridSize },
+          { dx: -6 * gridSize, dy: 0 },
+          { dx: -3 * gridSize, dy: -5 * gridSize },
+          { dx: 3 * gridSize, dy: -5 * gridSize },
+        ];
+
+        for (const dir of directions) {
+          const newX = x + dir.dx;
+          const newY = y + dir.dy;
+
+          if (isValidPosition(newX, newY)) {
+            score += lookAhead(newX, newY, depth - 1);
+          }
+        }
+
+        return score;
+      }
+
+      function isValidPosition(x, y) {
+        const canvasRect = canvas.getBoundingClientRect();
+        const nodeWidth = 6 * gridSize;
+        const nodeHeight = 5 * gridSize;
+
+        return (
+          x >= 0 &&
+          x + nodeWidth <= canvasRect.width &&
+          y >= 0 &&
+          y + nodeHeight <= canvasRect.height &&
+          isPositionEmpty(x, y)
+        );
+      }
+
+      // Update the isPositionEmpty function to use canvas-relative coordinates
+      function isPositionEmpty(x, y) {
+        const nodeWidth = 6 * gridSize;
+        const nodeHeight = 5 * gridSize;
+        const existingNodes = document.querySelectorAll(".node");
+        const canvasRect = canvas.getBoundingClientRect();
+
+        for (const node of existingNodes) {
+          const rect = node.getBoundingClientRect();
+          const nodeX = rect.left - canvasRect.left;
+          const nodeY = rect.top - canvasRect.top;
+          if (
+            x < nodeX + rect.width &&
+            x + nodeWidth > nodeX &&
+            y < nodeY + rect.height &&
+            y + nodeHeight > nodeY
+          ) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      function connectToNearbyNodes(newNode) {
+        const existingNodes = document.querySelectorAll(".node");
+        const newNodeRect = newNode.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        const connectionDistance = 7 * gridSize; // Slightly increased to ensure adjacent cells are included
+
+        existingNodes.forEach((node) => {
+          if (node !== newNode) {
+            const nodeRect = node.getBoundingClientRect();
+            const distance = Math.sqrt(
+              Math.pow(
+                newNodeRect.left +
+                  newNodeRect.width / 2 -
+                  (nodeRect.left + nodeRect.width / 2),
+                2
+              ) +
+                Math.pow(
+                  newNodeRect.top +
+                    newNodeRect.height / 2 -
+                    (nodeRect.top + nodeRect.height / 2),
+                  2
+                )
+            );
+
+            if (distance <= connectionDistance) {
+              // Connect nodes based on their relative positions
+              const newNodeCenterX =
+                newNodeRect.left + newNodeRect.width / 2 - canvasRect.left;
+              const newNodeCenterY =
+                newNodeRect.top + newNodeRect.height / 2 - canvasRect.top;
+              const existingNodeCenterX =
+                nodeRect.left + nodeRect.width / 2 - canvasRect.left;
+              const existingNodeCenterY =
+                nodeRect.top + nodeRect.height / 2 - canvasRect.top;
+
+              if (newNodeCenterX < existingNodeCenterX) {
+                // New node is to the left, connect its output to existing node's input
+                const output = newNode.querySelector(".output");
+                const input = node.querySelector(".input");
+                createEdge(output, input);
+              } else {
+                // New node is to the right or directly above/below, connect existing node's output to new node's input
+                const output = node.querySelector(".output");
+                const input = newNode.querySelector(".input");
+                createEdge(output, input);
+              }
+            }
+          }
+        });
+      }
+
+      // Modify the addNode function to accept x and y coordinates
+      function addNode(x = 6 * gridSize, y = 6 * gridSize * nodeCount) {
+        nodeCount++;
+        const node = document.createElement("div");
+        node.className = "node";
+        node.id = `node${nodeCount}`;
+        node.style.left = `${x}px`;
+        node.style.top = `${y}px`;
+        node.innerHTML = `
+          <div class="node-background"></div>
+          <div class="node-content">Node ${nodeCount}</div>
+          <div class="connector input" data-node="${nodeCount}" data-type="input"></div>
+          <div class="connector output" data-node="${nodeCount}" data-type="output"></div>
+        `;
+        canvas.appendChild(node);
+        return node;
+      }
+
+      // Add buttons to start and stop auto-grow
+      const startAutoGrowBtn = document.createElement("button");
+      startAutoGrowBtn.textContent = "Start Growth";
+      startAutoGrowBtn.style.position = "absolute";
+      startAutoGrowBtn.style.top = "50px";
+      startAutoGrowBtn.style.left = "10px";
+      startAutoGrowBtn.addEventListener("click", startAutoGrow);
+      document.body.appendChild(startAutoGrowBtn);
+
+      const stopAutoGrowBtn = document.createElement("button");
+      stopAutoGrowBtn.textContent = "Stop Growth";
+      stopAutoGrowBtn.style.position = "absolute";
+      stopAutoGrowBtn.style.top = "80px";
+      stopAutoGrowBtn.style.left = "10px";
+      stopAutoGrowBtn.addEventListener("click", stopAutoGrow);
+      document.body.appendChild(stopAutoGrowBtn);
+
+      // END AUTOGROWTH
+
+      function startDragging(e) {
+        if (
+          e.target.closest(".node") &&
+          !e.target.classList.contains("connector")
+        ) {
+          isDragging = true;
+          draggedNode = e.target.closest(".node");
+          const rect = draggedNode.getBoundingClientRect();
+          offsetX = e.clientX - rect.left;
+          offsetY = e.clientY - rect.top;
+        }
+      }
+
+      function stopDragging() {
+        isDragging = false;
+        draggedNode = null;
+      }
+
+      function drag(e) {
+        if (isDragging) {
+          const x = Math.round((e.clientX - offsetX) / gridSize) * gridSize;
+          const y = Math.round((e.clientY - offsetY) / gridSize) * gridSize;
+          draggedNode.style.left = `${x}px`;
+          draggedNode.style.top = `${y}px`;
+          updateEdges();
+        }
+        if (isConnecting) {
+          updateGhostLine(e);
+        }
+      }
+
+      function startConnecting(e) {
+        if (e.target.classList.contains("connector")) {
+          e.stopPropagation();
+          e.preventDefault();
+          isConnecting = true;
+          startConnector = e.target;
+          createGhostLine(e);
+        }
+      }
+
+      function stopConnecting(e) {
+        if (isConnecting) {
+          if (e.target.classList.contains("connector")) {
+            const endConnector = e.target;
+            if (
+              startConnector.dataset.type !== endConnector.dataset.type &&
+              startConnector.dataset.node !== endConnector.dataset.node
+            ) {
+              createEdge(startConnector, endConnector);
+            }
+          }
+          removeGhostLine();
+        }
+        isConnecting = false;
+        startConnector = null;
+      }
+
+      function createEdge(start, end) {
+        const edge = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "path"
+        );
+        edge.setAttribute("stroke", "#333");
+        edge.setAttribute("stroke-width", "2");
+        edge.setAttribute("fill", "none");
+        edges.push({ start, end, element: edge });
+        updateEdges();
+        edgesSvg.appendChild(edge);
+      }
+
+      function updateEdges() {
+        edges.forEach((edge) => {
+          const startRect = edge.start.getBoundingClientRect();
+          const endRect = edge.end.getBoundingClientRect();
+          const canvasRect = canvas.getBoundingClientRect();
+          const startX = startRect.left - canvasRect.left + startRect.width / 2;
+          const startY = startRect.top - canvasRect.top + startRect.height / 2;
+          const endX = endRect.left - canvasRect.left + endRect.width / 2;
+          const endY = endRect.top - canvasRect.top + endRect.height / 2;
+          edge.element.setAttribute(
+            "d",
+            createHexagonalPath(startX, startY, endX, endY)
+          );
+        });
+      }
+
+      function createGhostLine(e) {
+        ghostLine = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "path"
+        );
+        ghostLine.setAttribute("stroke", "#999");
+        ghostLine.setAttribute("stroke-width", "2");
+        ghostLine.setAttribute("stroke-dasharray", "5,5");
+        ghostLine.setAttribute("fill", "none");
+        edgesSvg.appendChild(ghostLine);
+        updateGhostLine(e);
+      }
+
+      function updateGhostLine(e) {
+        if (ghostLine && startConnector) {
+          const startRect = startConnector.getBoundingClientRect();
+          const canvasRect = canvas.getBoundingClientRect();
+          const startX = startRect.left - canvasRect.left + startRect.width / 2;
+          const startY = startRect.top - canvasRect.top + startRect.height / 2;
+          const endX = e.clientX - canvasRect.left;
+          const endY = e.clientY - canvasRect.top;
+          ghostLine.setAttribute(
+            "d",
+            createHexagonalPath(startX, startY, endX, endY)
+          );
+        }
+      }
+
+      function removeGhostLine() {
+        if (ghostLine) {
+          edgesSvg.removeChild(ghostLine);
+          ghostLine = null;
+        }
+      }
+
+      function createHexagonalPath(x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        const thirdX = x1 + dx / 3;
+        const twoThirdsX = x1 + (2 * dx) / 3;
+        const thirdY = y1 + dy / 3;
+        const twoThirdsY = y1 + (2 * dy) / 3;
+
+        let path = `M${x1},${y1} `;
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+          // Horizontal-dominant path
+          path += `L${thirdX},${y1} `;
+          path += `L${midX},${midY} `;
+          path += `L${twoThirdsX},${y2} `;
+        } else {
+          // Vertical-dominant path
+          path += `L${x1},${thirdY} `;
+          path += `L${midX},${midY} `;
+          path += `L${x2},${twoThirdsY} `;
+        }
+
+        path += `L${x2},${y2}`;
+        return path;
+      }
+
+      function preventDefaultOnConnectors(e) {
+        if (e.target.classList.contains("connector")) {
+          e.preventDefault();
+        }
+      }
+
+      // Event listeners
+      canvas.addEventListener("mousedown", startDragging);
+      document.addEventListener("mouseup", stopDragging);
+      document.addEventListener("mousemove", drag);
+      canvas.addEventListener("mousedown", startConnecting);
+      document.addEventListener("mouseup", stopConnecting);
+      addNodeBtn.addEventListener("click", addNode);
+      canvas.addEventListener("mousedown", preventDefaultOnConnectors);
+    </script>
+  </body>
+</html>
